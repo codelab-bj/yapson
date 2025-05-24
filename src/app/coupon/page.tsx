@@ -48,7 +48,7 @@ useEffect(() => {
 
     } catch (err) {
       console.error('Error fetching coupons:', err);
-      setError('Failed to load coupons. Please check your token and try again.');
+      //setError('Failed to load coupons. Please check your token and try again.');
     } finally {
       setLoading(false);
     }
