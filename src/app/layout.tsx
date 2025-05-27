@@ -39,6 +39,7 @@
 
 import React ,{useEffect} from 'react';
 import { ThemeProvider } from '../components/ThemeProvider';
+import { Suspense } from 'react';
 import { WebSocketProvider } from '../context/WebSocketContext';
 import { usePathname, useSearchParams } from 'next/navigation';
 import i18n from '../../i18n';
@@ -56,12 +57,7 @@ import "./globals.css";
 //   variable: "--font-geist-mono",
 //   subsets: ["latin"],
 // });
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function LayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -72,20 +68,35 @@ export default function RootLayout({
     
     // Update HTML lang attribute
     document.documentElement.lang = lang;
-  }, [pathname, searchParams]); // Re-run when route changes
+  }, [pathname, searchParams]);
 
+  return <>{children}</>;
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  
 
   return (
-    <WebSocketProvider>
+    
     <html lang="fr">
       <body className="antialiased">
+      <WebSocketProvider>
         <ThemeProvider>
+        <Suspense fallback={<div>Loading...</div>}>
+        <LayoutContent>
           <div className="min-h-screen">
             <main>{children}</main>
           </div>
+        </LayoutContent>
+        </Suspense>
         </ThemeProvider>
+        </WebSocketProvider>
       </body>
     </html>
-    </WebSocketProvider>
+
   );
 }
