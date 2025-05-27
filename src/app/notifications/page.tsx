@@ -295,6 +295,7 @@ export default function NotificationsPage() {
             return;
           }
 
+
           const newNotification: Notification = {
             id: data.id,
             title: data.title,

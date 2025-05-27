@@ -427,7 +427,7 @@ languageDetector.addDetector({
   name: 'customDetector',
   lookup: () => {
     if (typeof window === 'undefined') {
-      return 'en'; // Default language for SSR
+      return 'fr'; // Default language for SSR
     }
     // Your client-side detection logic here
     return undefined;

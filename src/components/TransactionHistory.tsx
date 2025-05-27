@@ -1032,7 +1032,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ArrowDownLeft, ArrowUpRight, RotateCw, X, MoreHorizontal, Activity, Copy, } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, RotateCw, X, Activity, Copy, } from 'lucide-react';
 //import Footer from '../components/footer';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from './ThemeProvider';
@@ -1322,6 +1322,8 @@ export default function TransactionHistory() {
     const backoffDelay = Math.min(1000 * Math.pow(2, webSocketReconnectAttempts.current), 30000);
     webSocketReconnectAttempts.current++;
 
+    console.log(`Attempting to reconnect in ${backoffDelay / 1000} seconds...`);
+
     reconnectTimeoutRef.current = setTimeout(() => {
       if (isRealTimeEnabled) {
         setupWebSocket();
@@ -1332,6 +1334,7 @@ export default function TransactionHistory() {
   const handleWebSocketMessage = (event: MessageEvent) => {
     try {
       const data = JSON.parse(event.data);
+      console.log('Received WebSocket message:', data);
       wsHealth.current = {
         lastMessageTime: Date.now(),
         messageCount: wsHealth.current.messageCount + 1
@@ -1339,10 +1342,35 @@ export default function TransactionHistory() {
 
       switch (data.type) {
         case 'transaction_update':
+          console.log('Received transaction update:', data.transaction);
           handleTransactionUpdate(data.transaction);
           break;
         case 'new_transaction':
+          console.log('Received new transaction:', data.transaction);
           handleNewTransaction(data.transaction);
+          break;
+        case 'transaction_link':
+          const url = data.url || data.data; // Handle both formats
+          console.log('Transaction link received:', { url, fullData: data });
+          
+          if (url) {
+            try {
+              const newWindow = window.open('', '_blank');
+              if (newWindow) {
+                newWindow.location.href = url;
+              } else {
+                console.warn('Popup was blocked, falling back to direct window.open');
+                window.open(url, '_blank', 'noopener,noreferrer');
+              }
+            } catch (err) {
+              console.error('Error opening URL:', err);
+              // Fallback to showing the URL to the user
+              const shouldOpen = window.confirm(`Open payment link? ${url}`);
+              if (shouldOpen) {
+                window.location.href = url;
+              }
+            }
+          }
           break;
         case 'pong':
           console.log('Received pong from server');
@@ -1598,14 +1626,17 @@ export default function TransactionHistory() {
   // Initial fetch and WebSocket setup
   useEffect(() => {
     // Trigger animation
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setAnimateHeader(true);
     }, 500);
 
     fetchTransactions(page, activeTab);
 
-    // Setup WebSocket connection
-    setupWebSocket();
+    // Setup WebSocket connection - always attempt to connect if user is authenticated
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      setupWebSocket();
+    }
 
     // Add health check interval for WebSocket
     const healthCheckInterval = setInterval(() => {
@@ -1620,6 +1651,7 @@ export default function TransactionHistory() {
 
     // Cleanup function
     return () => {
+      clearTimeout(timer);
       clearInterval(healthCheckInterval);
       if (webSocketRef.current) {
         // Clear ping interval if exists
@@ -1628,7 +1660,7 @@ export default function TransactionHistory() {
         }
 
         webSocketRef.current.close();
-        webSocketRef.current = null;
+        //webSocketRef.current = null;
       }
 
       // Clear any pending reconnection timeouts
@@ -1637,6 +1669,8 @@ export default function TransactionHistory() {
       }
     };
   }, []);
+
+  
 
   // Verify WebSocket connection after initial setup
   useEffect(() => {

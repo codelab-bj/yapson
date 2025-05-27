@@ -330,6 +330,7 @@ import { useTranslation } from 'react-i18next';
 //import { Transaction } from 'mongodb';
 //import DashboardHeader from '@/components/DashboardHeader';
 import { useTheme } from '@/components/ThemeProvider';
+import { useWebSocket } from '@/context/WebSocketContext';
 
 //import { Transaction } from 'mongodb';
 
@@ -413,6 +414,28 @@ export default function Deposits() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
   const { theme } = useTheme();
+  const { addMessageHandler } = useWebSocket();
+
+
+  useEffect(() => {
+    const handleTransactionLink = (data: any) => {
+      if (data.type === 'transaction_link' && data.data) {
+        console.log('Opening transaction link:', data.data);
+        // Try to open in a new tab
+      const newWindow = window.open('', '_blank');
+      if (newWindow) {
+        newWindow.location.href = data.data;
+      } else {
+        // Fallback to direct open if popup is blocked
+        window.open(data.data, '_blank', 'noopener,noreferrer');
+      }
+    }
+  };
+
+
+    const removeHandler = addMessageHandler(handleTransactionLink);
+    return () => removeHandler();
+  }, [addMessageHandler]);
 
 
   // Fetch networks and saved app IDs on component mount

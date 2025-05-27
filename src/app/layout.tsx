@@ -39,6 +39,7 @@
 
 import React from 'react';
 import { ThemeProvider } from '../components/ThemeProvider';
+import { WebSocketProvider } from '../context/WebSocketContext';
 
 //import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -59,6 +60,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
+    <WebSocketProvider>
     <html lang="fr">
       <body className="antialiased">
         <ThemeProvider>
@@ -68,5 +70,6 @@ export default function RootLayout({
         </ThemeProvider>
       </body>
     </html>
+    </WebSocketProvider>
   );
 }

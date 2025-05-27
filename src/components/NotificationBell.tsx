@@ -784,6 +784,13 @@ export default function NotificationBell({ className }: NotificationBellProps) {
             return;
           }
 
+          // // Handle transaction link message
+          // if (data.type === 'transaction_link' && data.url) {
+          //   console.log('Opening transaction link:', data.url);
+          //   window.open(data.url, '_blank', 'noopener,noreferrer');
+          //   return;
+          // }
+
           // Handle notification message
           const newNotification: Notification = {
             id: data.id,
