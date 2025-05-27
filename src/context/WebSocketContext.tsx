@@ -16,7 +16,8 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
   const messageHandlers = useRef<((data: any) => void)[]>([]);
   const reconnectAttempts = useRef(0);
   const isConnected = useRef(false);
-  const reconnectTimeout = useRef<NodeJS.Timeout>();
+ // const reconnectTimeout = useRef<NodeJS.Timeout>();
+   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const connect = () => {
     const token = localStorage.getItem('accessToken');
@@ -44,11 +45,11 @@ export const WebSocketProvider = ({ children }: { children: ReactNode }) => {
           const data = JSON.parse(event.data);
 
           console.log('WebSocket message received:', data);
-          const normalizedData = {
-            ...data,
-            // If data has a data property, use that as the URL
-            ...(data.data && { url: data.data })
-          };
+          // const normalizedData = {
+          //   ...data,
+          //   // If data has a data property, use that as the URL
+          //   ...(data.data && { url: data.data })
+          // };
 
           messageHandlers.current.forEach(handler => handler(data));
         } catch (error) {
