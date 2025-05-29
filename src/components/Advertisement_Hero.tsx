@@ -323,9 +323,9 @@ const SlidingHero = ({ baseUrl = 'https://api.yapson.net' }) => {
   //   setCurrentSlide(prev => (prev - 1 + slides.length) % slides.length);
   // }, [slides.length]);
 
-  const goToSlide = useCallback((index: number) => { // Explicitly type index
-    setCurrentSlide(index);
-  }, []);
+  // const goToSlide = useCallback((index: number) => { // Explicitly type index
+  //   setCurrentSlide(index);
+  // }, []);
 
   const handleImageLoad = useCallback((slideId: string) => { // Explicitly type slideId
     setImageLoaded(prev => ({ ...prev, [slideId]: true }));

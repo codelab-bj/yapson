@@ -404,13 +404,13 @@ export default function Deposits() {
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState<'selectId' | 'selectNetwork' | 'enterDetails'>('selectId');
   const [selectedId, setSelectedId] = useState<IdLink | null>(null);
-  const [selectedNetwork, setSelectedNetwork] = useState<{ id: string; name: string; image?: string } | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<{ id: string; name: string; public_name: string; image?: string } | null>(null);
   const [formData, setFormData] = useState({
     amount: '',
     phoneNumber: ''
   });
   
-  const [networks, setNetworks] = useState<{ id: string; name: string; image?: string }[]>([]);
+  const [networks, setNetworks] = useState<{ id: string; name: string; public_name: string; image?: string }[]>([]);
   const [savedAppIds, setSavedAppIds] = useState<IdLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -491,7 +491,7 @@ export default function Deposits() {
     setCurrentStep('selectNetwork');
   };
 
-  const handleNetworkSelect = (network: { id: string; name: string; image?: string }) => {
+  const handleNetworkSelect = (network: { id: string; name: string; public_name: string; image?: string }) => {
     setSelectedNetwork(network);
     setCurrentStep('enterDetails');
   };
@@ -595,13 +595,13 @@ export default function Deposits() {
                   } transition-colors`}
                 >
                   {network.image ? (
-                    <img src={network.image} alt={network.name} className="h-12 mx-auto mb-2" />
+                    <img src={network.image} alt={network.public_name} className="h-12 mx-auto mb-2" />
                   ) : (
                     <div className="h-12 flex items-center justify-center mb-2">
-                      {network.name}
+                      {network.public_name}
                     </div>
                   )}
-                  <div className="text-sm font-medium">{network.name}</div>
+                  <div className="text-sm font-medium">{network.public_name}</div>
                 </div>
               ))}
             </div>
@@ -627,7 +627,7 @@ export default function Deposits() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">{t("Network")}</p>
-                  <p className="font-medium">{selectedNetwork?.name}</p>
+                  <p className="font-medium">{selectedNetwork?.public_name}</p>
                 </div>
               </div>
               
