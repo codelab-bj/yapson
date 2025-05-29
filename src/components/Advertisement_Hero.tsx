@@ -253,7 +253,7 @@ const SlidingHero = ({ baseUrl = 'https://api.yapson.net' }) => {
       try {
         setLoading(true);
         setError(null); // Clear previous errors
-        const response = await fetch(`${baseUrl}/betpay/advertisement`);
+        const response = await fetch(`${baseUrl}/yapson/advertisement`);
         if (!response.ok) {
            // Attempt to read error message from response body
            const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
