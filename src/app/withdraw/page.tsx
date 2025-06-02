@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 // import styles from '../styles/Withdraw.module.css';
 //import DashboardHeader from '@/components/DashboardHeader';
 import { useTheme } from '../../components/ThemeProvider';
+import { CopyIcon } from 'lucide-react';
 
 
 interface Network {
@@ -75,14 +76,16 @@ interface TransactionDetail {
 export default function Withdraw() {
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState<'selectId' | 'selectNetwork' | 'enterDetails'>('selectId');
-  const [selectedId, setSelectedId] = useState<IdLink | null>(null);
-  const [selectedNetwork, setSelectedNetwork] = useState<{ id: string; name: string; image?: string } | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<App | null>(null);
+  const [platforms, setPlatforms] = useState<App[]>([]);
+  const [selectedNetwork, setSelectedNetwork] = useState<{ id: string; name: string; public_name?: string; image?: string } | null>(null);
   const [formData, setFormData] = useState({
     withdrawalCode: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    betid: '',
   });
   
-  const [networks, setNetworks] = useState<{ id: string; name: string; image?: string }[]>([]);
+  const [networks, setNetworks] = useState<{ id: string; name: string; public_name?: string; image?: string }[]>([]);
   const [savedAppIds, setSavedAppIds] = useState<IdLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -91,6 +94,31 @@ export default function Withdraw() {
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
   const { theme } = useTheme();
 
+
+  const fetchPlatforms = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    try {
+      const response = await fetch('https://api.yapson.net/yapson/app_name', {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPlatforms(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch platforms:', response.status);
+        setPlatforms([]);
+      }
+    } catch (error) {
+      console.error('Error fetching platforms:', error);
+      setPlatforms([]);
+    }
+  };
   // Fetch networks and saved app IDs on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -103,27 +131,37 @@ export default function Withdraw() {
       }
 
       try {
-        // Fetch networks
-        const networksResponse = await axios.get('https://api.yapson.net/yapson/network/', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setNetworks(networksResponse.data);
+        setLoading(true);
+        // Fetch all data in parallel
+        const [networksResponse, savedIdsResponse] = await Promise.all([
+          fetch('https://api.yapson.net/yapson/network/', {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch('https://api.yapson.net/yapson/id_link', {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetchPlatforms() // Fetch platforms in parallel
+        ]);
 
-        // Fetch saved app IDs
-        const savedIdsResponse = await axios.get('https://api.yapson.net/yapson/id_link', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        let processedData: IdLink[] = [];
-        if (Array.isArray(savedIdsResponse.data)) {
-          processedData = savedIdsResponse.data;
-        } else if (savedIdsResponse.data?.results) {
-          processedData = savedIdsResponse.data.results;
-        } else if (savedIdsResponse.data?.data) {
-          processedData = savedIdsResponse.data.data;
+        if (networksResponse.ok) {
+          const networksData = await networksResponse.json();
+          setNetworks(networksData);
         }
-        
-        setSavedAppIds(processedData);
+
+        if (savedIdsResponse.ok) {
+          const data = await savedIdsResponse.json();
+          let processedData: IdLink[] = [];
+          
+          if (Array.isArray(data)) {
+            processedData = data;
+          } else if (data?.results) {
+            processedData = data.results;
+          } else if (data?.data) {
+            processedData = data.data;
+          }
+          
+          setSavedAppIds(processedData);
+        }
       } catch (err) {
         console.error('Error fetching data:', err);
         setError(t('Failed to load data. Please try again later.'));
@@ -135,11 +173,10 @@ export default function Withdraw() {
     fetchData();
   }, []);
 
-  const handleIdSelect = (idLink: IdLink) => {
-    setSelectedId(idLink);
+  const handlePlatformSelect = (platform: App) => {
+    setSelectedPlatform(platform);
     setCurrentStep('selectNetwork');
   };
-
   const handleNetworkSelect = (network: { id: string; name: string; image?: string }) => {
     setSelectedNetwork(network);
     setCurrentStep('enterDetails');
@@ -155,7 +192,7 @@ export default function Withdraw() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedId || !selectedNetwork) return;
+    if (!selectedPlatform || !selectedNetwork) return;
     
     setLoading(true);
     try {
@@ -167,8 +204,8 @@ export default function Withdraw() {
         withdrawal_code: formData.withdrawalCode,
         phone_number: formData.phoneNumber,
         network_id: selectedNetwork.id,
-        app_id: selectedId.app_name?.id,
-        user_app_id: selectedId.link
+        app_id: selectedPlatform.id,
+        user_app_id: formData.betid
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -180,9 +217,9 @@ export default function Withdraw() {
       setSuccess('Withdrawal initiated successfully!');
       // Reset form
       setCurrentStep('selectId');
-      setSelectedId(null);
+      setSelectedPlatform(null);
       setSelectedNetwork(null);
-      setFormData({ withdrawalCode: '', phoneNumber: '' });
+      setFormData({ withdrawalCode: '', phoneNumber: '', betid: '' });
     } catch (err) {
       console.error('Withdrawal error:', err);
       if (axios.isAxiosError(err)) {
@@ -200,26 +237,32 @@ export default function Withdraw() {
   const renderStep = () => {
     switch (currentStep) {
       case 'selectId':
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">{t("Step 1: Select Your Bet ID")}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {savedAppIds.map((idLink) => (
-                <div 
-                  key={idLink.id}
-                  onClick={() => handleIdSelect(idLink)}
-                  className={`p-4 border rounded-lg cursor-pointer ${theme.colors.hover} transition-colors`}
-                >
-                  <div className="font-medium">{idLink.app_name?.public_name || idLink.app_name?.name || 'Unknown App'}</div>
-                  <div className="text-sm text-gray-500 truncate">{idLink.link}</div>
-                </div>
-              ))}
-            </div>
-            {savedAppIds.length === 0 && (
-              <p className="text-gray-500">{t("No saved bet IDs found. Please add one in your profile.")}</p>
-            )}
+      return (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold">{t("Step 1: Select Your Betting Platform")}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {platforms.map((platform) => (
+              <div 
+                key={platform.id}
+                onClick={() => handlePlatformSelect(platform)}
+                className={`p-4 border rounded-lg cursor-pointer ${theme.colors.hover} transition-colors`}
+              >
+                <div className="font-medium">{platform.public_name || platform.name}</div>
+                {platform.image && (
+                  <img 
+                    src={platform.image} 
+                    alt={platform.public_name || platform.name}
+                    className="h-10 w-10 object-contain mt-2"
+                  />
+                )}
+              </div>
+            ))}
           </div>
-        );
+          {platforms.length === 0 && !loading && (
+            <p className="text-gray-500">No betting platforms available.</p>
+          )}
+        </div>
+      );
         
       case 'selectNetwork':
         return (
@@ -235,13 +278,13 @@ export default function Withdraw() {
                   } transition-colors`}
                 >
                   {network.image ? (
-                    <img src={network.image} alt={network.name} className="h-12 mx-auto mb-2" />
+                    <img src={network.image} alt={network.public_name} className="h-12 mx-auto mb-2" />
                   ) : (
                     <div className="h-12 flex items-center justify-center mb-2">
-                      {network.name}
+                      {network.public_name}
                     </div>
                   )}
-                  <div className="text-sm font-medium">{network.name}</div>
+                  <div className="text-sm font-medium">{network.public_name}</div>
                 </div>
               ))}
             </div>
@@ -254,24 +297,71 @@ export default function Withdraw() {
           </div>
         );
         
-      case 'enterDetails':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-xl font-bold">{t("Step 3: Enter Withdrawal Details")}</h2>
-            
-            <div className=" p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-500">{t("Selected Bet ID")}</p>
-                  <p className="font-medium">{selectedId?.link}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">{t("Network")}</p>
-                  <p className="font-medium">{selectedNetwork?.name}</p>
-                </div>
+        case 'enterDetails':
+          const platformBetIds = savedAppIds.filter(id => id.app_name.id === selectedPlatform?.id);
+          
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center mb-4">
+                <button 
+                  onClick={() => {
+                    setSelectedNetwork(null);
+                    setCurrentStep('selectNetwork');
+                  }}
+                  className="mr-2 text-gray-500 hover:text-gray-700"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <h2 className="text-xl font-bold">{t("Step 3: Enter Details")}</h2>
               </div>
               
               <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                  <label className="block text-sm font-medium mb-1">
+                    {t("Bet ID")} ({selectedPlatform?.public_name || selectedPlatform?.name})
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.betid}
+                      onChange={(e) => setFormData(prev => ({ ...prev, betid: e.target.value }))}
+                      className="w-full p-2 border rounded"
+                      placeholder={t("Enter your bet ID")}
+                    />
+                    {platformBetIds.length > 0 && (
+                      <div className="mt-2">
+                        <label className="block text-sm text-gray-500 mb-1">{t("Saved Bet IDs")}</label>
+                        <div className="flex flex-wrap gap-2">
+                          {platformBetIds.map((id) => (
+                            <div
+                            key={id.id}
+                            className="px-3 py-1 bg-gray-100 rounded-full text-sm hover:bg-gray-200 cursor-pointer flex items-center"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setFormData(prev => ({ ...prev, betid: id.link }));
+                            }}
+                          >
+                            <span className="mr-2">{id.link}</span>
+                            <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(id.link);
+                                  // alert(t('Bet ID copied to clipboard'));
+                                }}
+                                className="p-1 hover:bg-gray-200 rounded"
+                              >
+                              <CopyIcon className="h-4 w-4 text-gray-500" />
+                            </button>
+                          </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div>
                   <label htmlFor="withdrawalCode" className="block text-sm font-medium mb-1">
                     {t("Withdrawal Code")}
@@ -322,7 +412,6 @@ export default function Withdraw() {
                 </div>
               </form>
             </div>
-          </div>
         );
     }
   };
@@ -411,8 +500,8 @@ export default function Withdraw() {
       
       {/* Transaction Details Modal */}
       {isModalOpen && selectedTransaction && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className={`${theme.colors.background} rounded-lg shadow-xl w-full max-w-md`}>
+        <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`bg-white rounded-lg shadow-xl w-full max-w-md`}>
             <div className="p-6">
               <h3 className="text-lg font-semibold mb-4">{t("Transaction Details")}</h3>
               <div className="space-y-2">

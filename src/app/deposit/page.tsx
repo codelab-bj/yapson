@@ -331,6 +331,7 @@ import { useTranslation } from 'react-i18next';
 //import DashboardHeader from '@/components/DashboardHeader';
 import { useTheme } from '@/components/ThemeProvider';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { CopyIcon } from 'lucide-react';
 
 //import { Transaction } from 'mongodb';
 
@@ -344,20 +345,19 @@ interface Network {
 interface App {
   id: string;
   name: string;
-  public_name?: string;
-  image?: string;
-  // Add other properties from the profile page App interface if needed for consistency
-  is_active?: boolean;
-  hash?: string;
-  cashdeskid?: string;
-  cashierpass?: string;
-  order?: string | null;
-  city?: string;
-  street?: string;
-  deposit_tuto_content?: string;
-  deposit_link?: string;
-  withdrawal_tuto_content?: string;
-  withdrawal_link?: string;
+  image: string;
+  is_active: boolean;
+  hash: string;
+  cashdeskid: string;
+  cashierpass: string;
+  order: string | null;
+  city: string;
+  street: string;
+  deposit_tuto_content: string;
+  deposit_link: string;
+  withdrawal_tuto_content: string;
+  withdrawal_link: string;
+  public_name: string;
 }
 
 // Updated IdLink interface to match the structure from profile/page.tsx
@@ -403,11 +403,13 @@ interface TransactionDetail {
 export default function Deposits() {
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState<'selectId' | 'selectNetwork' | 'enterDetails'>('selectId');
-  const [selectedId, setSelectedId] = useState<IdLink | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<App | null>(null);
+  const [platforms, setPlatforms] = useState<App[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState<{ id: string; name: string; public_name: string; image?: string } | null>(null);
   const [formData, setFormData] = useState({
     amount: '',
-    phoneNumber: ''
+    phoneNumber: '',
+    betid: '',
   });
   
   const [networks, setNetworks] = useState<{ id: string; name: string; public_name: string; image?: string }[]>([]);
@@ -443,6 +445,32 @@ export default function Deposits() {
 
 
   // Fetch networks and saved app IDs on component mount
+  const fetchPlatforms = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    try {
+      const response = await fetch('https://api.yapson.net/yapson/app_name', {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPlatforms(Array.isArray(data) ? data : []);
+      } else {
+        console.error('Failed to fetch platforms:', response.status);
+        setPlatforms([]);
+      }
+    } catch (error) {
+      console.error('Error fetching platforms:', error);
+      setPlatforms([]);
+    }
+  };
+
+  // Fetch networks and saved app IDs on component mount
   useEffect(() => {
     const fetchData = async () => {
       const token = localStorage.getItem('accessToken');
@@ -454,27 +482,37 @@ export default function Deposits() {
       }
 
       try {
-        // Fetch networks
-        const networksResponse = await axios.get('https://api.yapson.net/yapson/network/', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setNetworks(networksResponse.data);
+        setLoading(true);
+        // Fetch all data in parallel
+        const [networksResponse, savedIdsResponse] = await Promise.all([
+          fetch('https://api.yapson.net/yapson/network/', {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch('https://api.yapson.net/yapson/id_link', {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetchPlatforms() // Fetch platforms in parallel
+        ]);
 
-        // Fetch saved app IDs
-        const savedIdsResponse = await axios.get('https://api.yapson.net/yapson/id_link', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        let processedData: IdLink[] = [];
-        if (Array.isArray(savedIdsResponse.data)) {
-          processedData = savedIdsResponse.data;
-        } else if (savedIdsResponse.data?.results) {
-          processedData = savedIdsResponse.data.results;
-        } else if (savedIdsResponse.data?.data) {
-          processedData = savedIdsResponse.data.data;
+        if (networksResponse.ok) {
+          const networksData = await networksResponse.json();
+          setNetworks(networksData);
         }
-        
-        setSavedAppIds(processedData);
+
+        if (savedIdsResponse.ok) {
+          const data = await savedIdsResponse.json();
+          let processedData: IdLink[] = [];
+          
+          if (Array.isArray(data)) {
+            processedData = data;
+          } else if (data?.results) {
+            processedData = data.results;
+          } else if (data?.data) {
+            processedData = data.data;
+          }
+          
+          setSavedAppIds(processedData);
+        }
       } catch (err) {
         console.error('Error fetching data:', err);
         setError(t('Failed to load data. Please try again later.'));
@@ -486,8 +524,8 @@ export default function Deposits() {
     fetchData();
   }, []);
 
-  const handleIdSelect = (idLink: IdLink) => {
-    setSelectedId(idLink);
+  const handlePlatformSelect = (platform: App) => {
+    setSelectedPlatform(platform);
     setCurrentStep('selectNetwork');
   };
 
@@ -496,6 +534,34 @@ export default function Deposits() {
     setCurrentStep('enterDetails');
   };
 
+   // Save new bet ID
+   const saveBetId = async (betId: string) => {
+    if (!selectedPlatform || !betId) return;
+
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    try {
+      const response = await fetch('https://api.yapson.net/yapson/id_link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          app_name: selectedPlatform.id,
+          link: betId
+        })
+      });
+
+      if (response.ok) {
+        const newIdLink = await response.json();
+        setSavedAppIds(prev => [...prev, newIdLink]);
+      }
+    } catch (error) {
+      console.error('Error saving bet ID:', error);
+    }
+  };
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -506,7 +572,7 @@ export default function Deposits() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedId || !selectedNetwork) return;
+    if (!selectedPlatform || !selectedNetwork) return;
     
     setLoading(true);
     try {
@@ -518,8 +584,8 @@ export default function Deposits() {
         amount: formData.amount,
         phone_number: formData.phoneNumber,
         network_id: selectedNetwork.id,
-        app_id: selectedId.app_name?.id,
-        user_app_id: selectedId.link
+        app_id: selectedPlatform.id,
+        user_app_id: formData.betid
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -531,9 +597,9 @@ export default function Deposits() {
       setSuccess('Transaction initiated successfully!');
       // Reset form
       setCurrentStep('selectId');
-      setSelectedId(null);
+      setSelectedPlatform(null);
       setSelectedNetwork(null);
-      setFormData({ amount: '', phoneNumber: '' });
+      setFormData({ amount: '', phoneNumber: '', betid: '' });
     } catch (err) {
       console.error('Transaction error:', err);
       if (
@@ -557,29 +623,40 @@ export default function Deposits() {
   setSelectedTransaction(null);
 };
 
-  const renderStep = () => {
-    switch (currentStep) {
-      case 'selectId':
-        return (
-          <div className="space-y-4">
-            <h2 className="text-xl font-bold">{t("Step 1: Select Your Bet ID")}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {savedAppIds.map((idLink) => (
-                <div 
-                  key={idLink.id}
-                  onClick={() => handleIdSelect(idLink)}
-                  className={`p-4 border rounded-lg cursor-pointer ${theme.colors.hover} transition-colors`}
-                >
-                  <div className="font-medium">{idLink.app_name?.public_name || idLink.app_name?.name || 'Unknown App'}</div>
-                  <div className="text-sm text-gray-500 truncate">{idLink.link}</div>
-                </div>
-              ))}
-            </div>
-            {savedAppIds.length === 0 && (
-              <p className="text-gray-500">No saved bet IDs found. Please add one in your profile.</p>
-            )}
+  /**
+   * Renders the current step of the deposit process.
+   *
+   * @returns A JSX element representing the current step of the deposit process.
+   */
+const renderStep = () => {
+  switch (currentStep) {
+    case 'selectId':
+      return (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold">{t("Step 1: Select Your Betting Platform")}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {platforms.map((platform) => (
+              <div 
+                key={platform.id}
+                onClick={() => handlePlatformSelect(platform)}
+                className={`p-4 border rounded-lg cursor-pointer ${theme.colors.hover} transition-colors`}
+              >
+                <div className="font-medium">{platform.public_name || platform.name}</div>
+                {platform.image && (
+                  <img 
+                    src={platform.image} 
+                    alt={platform.public_name || platform.name}
+                    className="h-10 w-10 object-contain mt-2"
+                  />
+                )}
+              </div>
+            ))}
           </div>
-        );
+          {platforms.length === 0 && !loading && (
+            <p className="text-gray-500">No betting platforms available.</p>
+          )}
+        </div>
+      );
         
       case 'selectNetwork':
         return (
@@ -614,58 +691,94 @@ export default function Deposits() {
           </div>
         );
         
-      case 'enterDetails':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-xl font-bold">{t("Step 3: Enter Details")}</h2>
-            
-            <div className={`${theme.colors.c_background} p-4 rounded-lg`}>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-500">{t("Selected Bet ID")}</p>
-                  <p className="font-medium">{selectedId?.link}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">{t("Network")}</p>
-                  <p className="font-medium">{selectedNetwork?.public_name}</p>
-                </div>
+        case 'enterDetails':
+          const platformBetIds = savedAppIds.filter(id => id.app_name.id === selectedPlatform?.id);
+          
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center mb-4">
+                <button 
+                  onClick={() => {
+                    setSelectedNetwork(null);
+                    setCurrentStep('selectNetwork');
+                  }}
+                  className="mr-2 text-gray-500 hover:text-gray-700"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <h2 className="text-xl font-bold">{t("Step 3: Enter Details")}</h2>
               </div>
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="amount" className="block text-sm font-medium mb-1">
-                    {t("Amount")} (FCFA)
+                  <label className="block text-sm font-medium mb-1">
+                    {t("Bet ID")} ({selectedPlatform?.public_name || selectedPlatform?.name})
                   </label>
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={formData.betid}
+                      onChange={(e) => setFormData(prev => ({ ...prev, betid: e.target.value }))}
+                      className="w-full p-2 border rounded"
+                      placeholder={t("Enter your bet ID")}
+                    />
+                    {platformBetIds.length > 0 && (
+                      <div className="mt-2">
+                        <label className="block text-sm text-gray-500 mb-1">{t("Saved Bet IDs")}</label>
+                        <div className="flex flex-wrap gap-2">
+                          {platformBetIds.map((id) => (
+                            <div
+                            key={id.id}
+                            className="px-3 py-1 bg-gray-100 rounded-full text-sm hover:bg-gray-200 cursor-pointer flex items-center"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setFormData(prev => ({ ...prev, betid: id.link }));
+                            }}
+                          >
+                            <span className="mr-2">{id.link}</span>
+                            <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(id.link);
+                                  // alert(t('Bet ID copied to clipboard'));
+                                }}
+                                className="p-1 hover:bg-gray-200 rounded"
+                              >
+                              <CopyIcon className="h-4 w-4 text-gray-500" />
+                            </button>
+                          </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+  
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t("Amount")}</label>
                   <input
                     type="number"
-                    id="amount"
-                    name="amount"
                     value={formData.amount}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    placeholder="Enter amount"
-                    required
-                    min="200"
-                    step="50"
+                    onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
+                    className="w-full p-2 border rounded"
+                    placeholder={t("Enter amount")}
                   />
                 </div>
-                
+  
                 <div>
-                  <label htmlFor="phoneNumber" className="block text-sm font-medium mb-1">
-                    {t("Phone Number")}
-                  </label>
+                  <label className="block text-sm font-medium mb-1">{t("Phone Number")}</label>
                   <input
                     type="tel"
-                    id="phoneNumber"
-                    name="phoneNumber"
                     value={formData.phoneNumber}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"
-                    placeholder="e.g., 771234567"
-                    required
+                    onChange={(e) => setFormData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                    className="w-full p-2 border rounded"
+                    placeholder={t("Enter phone number")}
                   />
                 </div>
-                
+
                 <div className="flex justify-between pt-2">
                   <button
                     type="button"
@@ -684,8 +797,7 @@ export default function Deposits() {
                 </div>
               </form>
             </div>
-          </div>
-        );
+          );
     }
   };
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import DashboardHeader from '@/components/DashboardHeader';
 import { useTheme } from '@/components/ThemeProvider';
+import { CopyIcon } from 'lucide-react';
 // import axios from 'axios';
 
 const BASE_URL = 'https://api.yapson.net';
@@ -283,9 +284,20 @@ export default function BetIdsPage() {
                   const appName = item.app_name?.public_name || item.app_name?.name || 'Unknown App';
                   return (
                     <div key={item.id} className={`${theme.colors.background} flex items-center justify-between p-3 rounded-lg`}>
-                      <div>
+                      <div className="flex items-center">
                         <span className="font-medium">{appName}</span>
                         <span className="ml-2">- {item.link}</span>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(item.link);
+                            // alert(t('Bet ID copied to clipboard'));
+                          }}
+                          className="p-1 hover:bg-gray-200 rounded"
+                        >
+                          <CopyIcon className="h-4 w-4 text-gray-500" />
+                        </button>
                       </div>
                       <button
                         onClick={() => handleDeleteBetId(item.id)}
