@@ -201,7 +201,7 @@ export default function Withdraw() {
       
       const response = await axios.post('https://api.yapson.net/yapson/transaction', {
         type_trans: 'withdrawal',
-        withdrawal_code: formData.withdrawalCode,
+        withdriwal_code: formData.withdrawalCode,
         phone_number: formData.phoneNumber,
         network_id: selectedNetwork.id,
         app_id: selectedPlatform.id,
