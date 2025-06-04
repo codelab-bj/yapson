@@ -337,7 +337,7 @@ export default function Withdraw() {
                           {platformBetIds.map((id) => (
                             <div
                             key={id.id}
-                            className="px-3 py-1 bg-gray-100 rounded-full text-sm hover:bg-gray-200 cursor-pointer flex items-center"
+                            className="px-3 py-1 bg-gray-100 text-black rounded-full text-sm hover:bg-gray-200 cursor-pointer flex items-center"
                             onClick={(e) => {
                               e.preventDefault();
                               setFormData(prev => ({ ...prev, betid: id.link }));
