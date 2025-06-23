@@ -1,14 +1,35 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTheme } from './ThemeProvider';
 
 const ThemeToggle: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
-  
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+    // Read theme from localStorage or system preference
+    const stored = localStorage.getItem('theme');
+    if (stored === 'dark' || stored === 'light') {
+      setTheme(stored);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setTheme('dark');
+    }
+  }, [setTheme]);
+
+  if (!mounted) {
+    // Render nothing or a placeholder until mounted on client
+    return null;
+  }
+
   return (
     <button
-      onClick={toggleTheme}
+      onClick={() => {
+        const next = theme.mode === 'dark' ? 'light' : 'dark';
+        setTheme(next);
+        localStorage.setItem('theme', next);
+      }}
       className="flex items-center justify-center p-2 rounded-full"
       style={{ 
         backgroundColor: theme.mode === 'dark' ? '#374151' : '#e5e7eb',

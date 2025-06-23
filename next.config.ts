@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
    eslint: {
     ignoreDuringBuilds: true,
   },
+  images: {
+    domains: ["api.yapson.net"],
+  },
 };
 
 export default nextConfig;

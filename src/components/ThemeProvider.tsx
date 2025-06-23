@@ -104,46 +104,36 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 // Create a provider component
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize with system preference or default to light
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  
-  useEffect(() => {
-    // Check for system preference and localStorage on client-side
-    const savedTheme = localStorage.getItem('theme') as ThemeMode;
-    
-    if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
-      setThemeMode(savedTheme);
-    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setThemeMode('dark');
-    }
-  }, []);
+  // Read initial theme from <html data-theme>
+  const getInitialTheme = (): ThemeMode => {
+    if (typeof window === 'undefined') return 'light'; // SSR fallback
+    const attr = document.documentElement.getAttribute('data-theme');
+    if (attr === 'dark' || attr === 'light') return attr;
+    return 'light';
+  };
+
+  const [themeMode, setThemeMode] = useState<ThemeMode>(getInitialTheme);
 
   useEffect(() => {
     // Apply theme CSS variables to document root when theme changes
     const root = document.documentElement;
     const currentTheme = themes[themeMode];
-    
     // Apply color variables
     Object.entries(currentTheme.colors).forEach(([key, value]) => {
       root.style.setProperty(`--color-${key}`, value);
     });
-    
     // Apply other theme values
     root.style.setProperty('--border-radius', currentTheme.values.borderRadius);
-    
     // Apply font sizes
     Object.entries(currentTheme.values.fontSizes).forEach(([key, value]) => {
       root.style.setProperty(`--font-size-${key}`, value);
     });
-    
     // Apply spacing
     Object.entries(currentTheme.values.spacing).forEach(([key, value]) => {
       root.style.setProperty(`--spacing-${key}`, value);
     });
-    
     // Set data attribute for CSS selectors
     document.documentElement.setAttribute('data-theme', themeMode);
-    
     // Save to localStorage
     localStorage.setItem('theme', themeMode);
   }, [themeMode]);
