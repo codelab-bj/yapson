@@ -1,325 +1,3 @@
-
-
-// 'use client';
-// import { useState, useEffect } from 'react';
-// import Head from 'next/head';
-// import axios, { AxiosError } from 'axios';
-// import { useTranslation } from 'react-i18next';
-// //import styles from '../styles/Deposits.module.css';
-// import { ClipboardIcon } from 'lucide-react'; // Make sure to install this package
-// //import { Transaction } from 'mongodb';
-// import DashboardHeader from '@/components/DashboardHeader';
-// import { useTheme } from '@/components/ThemeProvider';
-
-// //import { Transaction } from 'mongodb';
-
-// interface Network {
-//   id: string;
-//   name: string;
-//   public_name?: string;
-//   image?: string;
-// }
-
-// interface App {
-//   id: string;
-//   name: string;
-//   public_name?: string;
-//   image?: string;
-// }
-
-// // Updated IdLink interface to match the structure from profile/page.tsx
-// interface IdLink {
-//   id: string;
-//   user: string;
-//   link: string; // This is the saved bet ID
-//   app_name: App; // This should be the full App object
-// }
-
-// interface Transaction {
-//   id: string;
-//   amount: number;
-//   type_trans: string;
-//   status: string;
-//   reference: string;
-//   created_at: string;
-//   network?: Network;
-//   app?: App;
-//   phone_number?: string;
-//   user_app_id?: string;
-//   error_message?: string;
-// }
-
-// interface TransactionDetail {
-//   transaction: Transaction;
-// }
-
-// interface ErrorResponse {
-  
-//   data?: {
-//     [key: string]: string[] | string | undefined;
-//     detail?: string;
-//     message?: string;
-//   };
-//   status?: number;
-// }
-// export default function Deposits() {
-//   const { t } = useTranslation();
-
-//   const [formData, setFormData] = useState({
-//     id: '',
-//     amount: '',
-//     number: '',
-//     network: ''
-//   });
-
-//   const [networks, setNetworks] = useState<{ id: string; name: string; image?: string }[]>([]);
-//   const [apps, setApps] = useState<{ id: string; name: string }[]>([]);
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState('');
-//   const [success, setSuccess] = useState('');
-//   const [isModalOpen, setIsModalOpen] = useState(false);
-//   const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
-//   const { theme } = useTheme();
-
-//   const [savedAppIds, setSavedAppIds] = useState<IdLink[]>([]); // Use the updated IdLink interface
-//   const [showSuggestions, setShowSuggestions] = useState(false);
-//   const [filteredSuggestions, setFilteredSuggestions] = useState<IdLink[]>([]);
-//    const [selectedSavedIdLink, setSelectedSavedIdLink] = useState<IdLink | null>(null);
-
-// //const MINIMUM_DEPOSIT = 200.01; // Minimum deposit amount
-
-//   // Fetch networks and apps data on component mount
-//   useEffect(() => {
-//     const fetchData = async () => {
-//       const token = localStorage.getItem('accessToken'); // Retrieve the token from localStorage
-//       if (!token) {
-//         setError(t('You must be logged in to access this feature.'));
-//         setLoading(false);
-//         window.location.href = '/'; // Redirect to login page if token is not found
-//         return;
-//       }
-
-//       try {
-//         const networksResponse = await axios.get('https://api.yapson.net/yapson/network/', {
-//           headers: {
-//             Authorization: `Bearer ${token}` // Include the token in the headers
-//           }
-//         });
-//         setNetworks(networksResponse.data);
-
-//         // Fetch available apps (needed to link saved IDs to app details)
-//         const appsResponse = await axios.get('https://api.yapson.net/yapson/app_name', {
-//           headers: { Authorization: `Bearer ${token}` },
-//         });
-//         setApps(appsResponse.data);
-
-
-//         // Fetch saved app IDs
-//         const savedIdsResponse = await axios.get('https://api.yapson.net/yapson/id_link', {
-//          headers: {
-//           Authorization: `Bearer ${token}`
-//           }
-//        });
-//        // Assuming the API returns an array of IdLink objects directly or within a 'results'/'data' field
-//        let processedData: IdLink[] = [];
-//        if (Array.isArray(savedIdsResponse.data)) {
-//          processedData = savedIdsResponse.data;
-//        } else if (savedIdsResponse.data && Array.isArray(savedIdsResponse.data.results)) {
-//          processedData = savedIdsResponse.data.results; // Handle paginated response
-//        } else if (savedIdsResponse.data && Array.isArray(savedIdsResponse.data.data)) {
-//          processedData = savedIdsResponse.data.data; // Handle other data structures
-//        } else if (savedIdsResponse.data && typeof savedIdsResponse.data === 'object') {
-//           // Handle case where a single object might be returned (less common for a list)
-//           // Ensure it conforms to IdLink structure or skip
-//           if (savedIdsResponse.data.id && savedIdsResponse.data.link && savedIdsResponse.data.app_name) {
-//              processedData = [savedIdsResponse.data as IdLink];
-//           }
-//        }
-//        setSavedAppIds(processedData);
-
-
-//       } catch (err: unknown) { // Use unknown for caught errors
-//         console.error(t('Error fetching data:'), err);
-//         if (err instanceof Error) { // Type guard
-//            setError(err.message || t('Failed to load necessary data. Please try again later.'));
-//         } else {
-//            setError(t('Failed to load necessary data. Please try again later.'));
-//         }
-//       }finally {
-//         setLoading(false);
-//       }
-//     };
-
-//     fetchData();
-//   }, [t]);
-
-//   //       const appsResponse = await axios.get('https://api.yapson.net/yapson/app_name', {
-//   //         headers: {
-//   //           Authorization: `Bearer ${token}` // Include the token in the headers
-//   //         }
-//   //       });
-//   //       setApps(appsResponse.data);
-//   //       // Fetch saved app IDs
-//   //       const savedIdsResponse = await axios.get('https://api.yapson.net/yapson/id_link', {
-//   //        headers: {
-//   //         Authorization: `Bearer ${token}`
-//   //         }
-//   //      });
-//   //      setSavedAppIds(savedIdsResponse.data);
-//   //     } catch (err) {
-//   //       console.error(t('Error fetching data:'), err);
-//   //       setError(t('Failed to load necessary data. Please try again later.'));
-//   //     }
-//   //   };
-
-//   //   fetchData();
-//   // }, [t]);
-
-//   // Filter suggestions based on input value
-//   useEffect(() => {
-//     if (formData.id) {
-//       const filtered = savedAppIds.filter(item =>
-//         item.link.toLowerCase().includes(formData.id.toLowerCase()) ||
-//         item.app_name?.name?.toLowerCase().includes(formData.id.toLowerCase()) ||
-//         item.app_name?.public_name?.toLowerCase().includes(formData.id.toLowerCase())
-//       );
-//       setFilteredSuggestions(filtered);
-//     } else {
-//       setFilteredSuggestions(savedAppIds); // Show all saved IDs when input is empty
-//     }
-//   }, [formData.id, savedAppIds]);
-
-
-
-//   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-//     const { name, value } = e.target;
-//     setFormData(prevState => ({
-//       ...prevState,
-//       [name]: value
-//     }));
-//     setSelectedSavedIdLink(null);
-//     // Suggestions will be filtered by the useEffect hook
-//   };
-
-//   const handleNetworkSelect = (networkName: string) => {
-//     setFormData(prevState => ({
-//       ...prevState,
-//       network: networkName
-//     }));
-//   };
-
-//    // Handler for selecting a suggestion
-//   const handleSelectSuggestion = (item: IdLink) => {
-//     setFormData(prev => ({ ...prev, id: item.link })); // Set the input value to the saved link
-//     setSelectedSavedIdLink(item); // Store the selected IdLink object
-//     setShowSuggestions(false); // Hide suggestions
-//   };
-
-//   const formatDate = (dateString: string) => {
-//     const date = new Date(dateString);
-//     return date.toLocaleString();
-//   };
-
-//   // const getStatusClass = (status: string) => {
-//   //   switch (status.toLowerCase()) {
-//   //     case 'completed':
-//   //     case 'success':
-//   //       return 'text-green-600';
-//   //     case 'pending':
-//   //       return 'text-yellow-600';
-//   //     case 'failed':
-//   //     case 'error':
-//   //       return 'text-red-600';
-//   //     default:
-//   //       return 'text-gray-600';
-//   //   }
-//   // };
-
-//   const formatStatus = (status: string) => {
-//     return status.charAt(0).toUpperCase() + status.slice(1);
-//   };
-
-//   const getTransactionTypeIcon = (type: string) => {
-//     if (type === "deposit") {
-//       return <span className="text-red-700">↓</span>;
-//     } else {
-//       return <span className="text-gray-700">↑</span>;
-//     }
-//   };
-
-//   const closeTransactionDetails = () => {
-//     setIsModalOpen(false);
-//     setSelectedTransaction(null);
-//   };
-
-//   const showTransactionDetails = (transaction: Transaction) => {
-//     setSelectedTransaction({ transaction });
-//     setIsModalOpen(true);
-//   };
-
-//   const extractErrorMessage = (error: AxiosError<ErrorResponse>): string => {
-//     // If the error response has data with field-specific errors
-//     if (error.response && error.response.data) {
-//       const data = error.response.data as unknown as Record<string, unknown>;
-      
-//       // Check if the error is in the format { "amount": ["Minimum deposit is 200.00 F CFA"] }
-//       for (const field in data) {
-//         if (Array.isArray(data[field]) && data[field].length > 0) {
-//           return data[field][0];
-//         }
-//       }
-      
-//       // Check if there's a general error message
-//       if ('detail' in data && typeof data.detail === 'string') {
-//         return data.detail;
-//       }
-      
-//       // Check if there's a general error message as string
-//       if (typeof data === 'string') {
-//         return data;
-//       }
-      
-//       // Handle the case when there's a message about waiting between transactions
-//       if ('message' in data && typeof data.message === 'string' && data.message.includes('wait')) {
-//         return data.message;
-//       }
-//     }
-    
-//     // Default error message
-//     return t('An error occurred. Please try again later.');
-//   };  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-//     e.preventDefault();
-//     setLoading(true);
-//     setError('');
-//     setSuccess('');
-
-//     const token = localStorage.getItem('accessToken'); // Retrieve the token from localStorage
-//     if (!token) {
-//       setError(t('You must be logged in to access this feature.'));
-//       setLoading(false);
-//       return;
-//     }
-
-//     if (!formData.network) {
-//       setError(t('Please select a network'));
-//       setLoading(false);
-//       return;
-//     }
-
-//     if (!formData.id) {
-//        setError(t('Please enter or select a Bet ID'));
-//        setLoading(false);
-//        return;
-//     }
-
-
-
-
-
-
-
-
-
 'use client';
 import { useState, useEffect } from 'react';
 //import Head from 'next/head';
@@ -421,28 +99,24 @@ export default function Deposits() {
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
   const { theme } = useTheme();
   const { addMessageHandler } = useWebSocket();
-
+  const [pendingTransactionLink, setPendingTransactionLink] = useState<string | null>(null);
 
   useEffect(() => {
     const handleTransactionLink = (data: WebSocketMessage) => {
       if (data.type === 'transaction_link' && data.data) {
-        console.log('Opening transaction link:', data.data);
-        // Try to open in a new tab
-      const newWindow = window.open('', '_blank');
-      if (newWindow) {
-        newWindow.location.href = data.data;
-      } else {
-        // Fallback to direct open if popup is blocked
-        window.open(data.data, '_blank', 'noopener,noreferrer');
+        setPendingTransactionLink(data.data); // Store the link, don't open immediately
       }
-    }
-  };
-
-
+    };
     const removeHandler = addMessageHandler(handleTransactionLink);
     return () => removeHandler();
   }, [addMessageHandler]);
 
+  const handleOpenTransactionLink = () => {
+    if (pendingTransactionLink) {
+      window.open(pendingTransactionLink, '_blank', 'noopener,noreferrer');
+      setPendingTransactionLink(null);
+    }
+  };
 
   // Fetch networks and saved app IDs on component mount
   const fetchPlatforms = async () => {
@@ -946,6 +620,21 @@ const renderStep = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Pending Transaction Link Notification */}
+        {pendingTransactionLink && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
+            <div className="bg-white p-6 rounded shadow-lg">
+              <p>Transaction terminée. Cliquez ci-dessous pour continuer :</p>
+              <button
+                onClick={handleOpenTransactionLink}
+                className="mt-4 px-4 py-2 bg-orange-600 text-white rounded"
+              >
+                Transaction ouverte
+              </button>
             </div>
           </div>
         )}
