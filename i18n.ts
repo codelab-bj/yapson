@@ -519,7 +519,7 @@ const resources = {
       "Failed to add bet ID": "Échec de l'ajout de l'ID de pari",
       "You must be logged in to delete a bet ID.": "Vous devez être connecté pour supprimer un ID de pari.",
       "Failed to delete bet ID": "Échec de la suppression de l'ID de pari",
-      "Back": "Retour",
+      
     },
   },
 };
