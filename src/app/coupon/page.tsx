@@ -145,7 +145,7 @@ const CouponPage = () => {
                 {/* Date Row */}
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-base" style={{ color: textColor }}>Date</span>
-                  <span className="text-base" style={{ color: textColor }}>{coupon.date}</span>
+                  <span className="text-base" style={{ color: textColor }}>{coupon.date ? coupon.date.slice(0, 10) : ''}</span>
                 </div>
               </div>
             </div>
