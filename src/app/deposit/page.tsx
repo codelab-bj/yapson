@@ -500,7 +500,7 @@ const renderStep = () => {
                   className="w-full p-2 border rounded"
                   placeholder={t("Enter OTP code")}
                 />
-                <p className="text-xs text-gray-500 mt-1">{selectedNetwork?.info || t("Enter the OTP you received")}</p>
+                <p className="text-xs text-gray-500 mt-1">{selectedNetwork?.info || ""}</p>
               </div>
             )}
             <div className="flex justify-between pt-2">

@@ -43,7 +43,7 @@ import { Suspense } from 'react';
 import { WebSocketProvider } from '../context/WebSocketContext';
 import { usePathname, useSearchParams } from 'next/navigation';
 import i18n from '../../i18n';
-
+import ChunkErrorBoundary from '../components/ChunkErrorBoundary';
 
 //import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -84,17 +84,19 @@ export default function RootLayout({
     
     <html lang="fr">
       <body className="antialiased">
-      <WebSocketProvider>
-        <ThemeProvider>
-        <Suspense fallback={<div>Loading...</div>}>
-        <LayoutContent>
-          <div className="min-h-screen">
-            <main>{children}</main>
-          </div>
-        </LayoutContent>
-        </Suspense>
-        </ThemeProvider>
-        </WebSocketProvider>
+      <ChunkErrorBoundary>
+        <WebSocketProvider>
+          <ThemeProvider>
+          <Suspense fallback={<div>Loading...</div>}>
+          <LayoutContent>
+            <div className="min-h-screen">
+              <main>{children}</main>
+            </div>
+          </LayoutContent>
+          </Suspense>
+          </ThemeProvider>
+          </WebSocketProvider>
+        </ChunkErrorBoundary>
       </body>
     </html>
 

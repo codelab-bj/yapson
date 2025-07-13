@@ -2,11 +2,19 @@
   "name": "yapsonstore",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:clean": "rm -rf .next && next build",
     "start": "next start",
-    "lint": "next lint"
+    "start:prod": "next start -p 3000",
+    "lint": "next lint",
+    "export": "next build && next export",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "axios": "^1.9.0",
