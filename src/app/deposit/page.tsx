@@ -80,6 +80,8 @@ interface DepositNetwork {
   image?: string;
   otp_required?: boolean;
   info?: string;
+  deposit_api?: string;
+  deposit_message?: string;
 }
 
 export default function Deposits() {
@@ -106,6 +108,17 @@ export default function Deposits() {
   const { addMessageHandler } = useWebSocket();
   const [pendingTransactionLink, setPendingTransactionLink] = useState<string | null>(null);
   const [savedAppIds, setSavedAppIds] = useState<{ id: string; user: string; link: string; app_name: App }[]>([]);
+  const [depositApi, setDepositApi] = useState<string | null>(null);
+  const [depositMessage, setDepositMessage] = useState<string | null>(null);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<{
+    type_trans: string;
+    amount: string;
+    phone_number: string;
+    network_id: string;
+    app_id: string;
+    user_app_id: string;
+  } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
@@ -191,6 +204,8 @@ export default function Deposits() {
 
   const handleNetworkSelect = (network: DepositNetwork) => {
     setSelectedNetwork(network);
+    setDepositApi(network.deposit_api || null);
+    setDepositMessage(network.deposit_message || null);
     setCurrentStep('enterDetails');
   };
 
@@ -208,16 +223,41 @@ export default function Deposits() {
     e.preventDefault();
     if (!selectedPlatform || !selectedNetwork || !formData.betid) return;
     
+    const payload = {
+      type_trans: 'deposit',
+      amount: formData.amount,
+      phone_number: formData.phoneNumber.replace(/\s+/g, ''),
+      network_id: selectedNetwork.id,
+      app_id: selectedPlatform.id,
+      user_app_id: formData.betid
+    };
+
+    // Check if deposit_api key exists and has value "connect"
+    if (depositApi === 'connect') {
+      // Store the payload and show modal if deposit_message exists
+      setPendingPayload(payload);
+      if (depositMessage) {
+        setShowDepositModal(true);
+        return; // Don't submit yet, wait for user confirmation
+      }
+      // If deposit_api is "connect" but deposit_message is null, submit directly
+    }
+
+    // If deposit_api is not "connect" or deposit_message is null, submit directly
+    await submitTransaction(payload);
+  };
+
+  const submitTransaction = async (payload: {
+    type_trans: string;
+    amount: string;
+    phone_number: string;
+    network_id: string;
+    app_id: string;
+    user_app_id: string;
+  }) => {
     setLoading(true);
     try {
-      const response = await api.post('/yapson/transaction', {
-        type_trans: 'deposit',
-        amount: formData.amount,
-        phone_number: formData.phoneNumber.replace(/\s+/g, ''),
-        network_id: selectedNetwork.id,
-        app_id: selectedPlatform.id,
-        user_app_id: formData.betid
-      });
+      const response = await api.post('/yapson/transaction', payload);
 
       const transaction = response.data;
       setSelectedTransaction({ transaction });
@@ -264,6 +304,19 @@ export default function Deposits() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDepositModalConfirm = async () => {
+    setShowDepositModal(false);
+    if (pendingPayload) {
+      await submitTransaction(pendingPayload);
+      setPendingPayload(null);
+    }
+  };
+
+  const handleDepositModalCancel = () => {
+    setShowDepositModal(false);
+    setPendingPayload(null);
   };
 
   const closeTransactionDetails = () => {
@@ -678,6 +731,48 @@ const renderStep = () => {
                     {t("Fermer")}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Deposit Message Modal */}
+        {showDepositModal && depositMessage && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md mx-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                  {t("Confirmation de dépôt")}
+                </h3>
+                <button 
+                  onClick={handleDepositModalCancel}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+                  {depositMessage}
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleDepositModalCancel}
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                >
+                  {t("Annuler")}
+                </button>
+                <button
+                  onClick={handleDepositModalConfirm}
+                  className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+                >
+                  {t("OK")}
+                </button>
               </div>
             </div>
           </div>

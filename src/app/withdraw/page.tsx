@@ -78,14 +78,28 @@ export default function Withdraw() {
   const [currentStep, setCurrentStep] = useState<'selectId' | 'selectNetwork' | 'addBetId' | 'enterDetails'>('selectId');
   const [selectedPlatform, setSelectedPlatform] = useState<App | null>(null);
   const [platforms, setPlatforms] = useState<App[]>([]);
-  const [selectedNetwork, setSelectedNetwork] = useState<{ id: string; name: string; public_name?: string; image?: string } | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<{ 
+    id: string; 
+    name: string; 
+    public_name?: string; 
+    image?: string;
+    withdrawal_api?: string;
+    withdrawal_message?: string;
+  } | null>(null);
   const [formData, setFormData] = useState({
     withdrawalCode: '',
     phoneNumber: '',
     betid: '',
   });
   
-  const [networks, setNetworks] = useState<{ id: string; name: string; public_name?: string; image?: string }[]>([]);
+  const [networks, setNetworks] = useState<{ 
+    id: string; 
+    name: string; 
+    public_name?: string; 
+    image?: string;
+    withdrawal_api?: string;
+    withdrawal_message?: string;
+  }[]>([]);
   const [savedAppIds, setSavedAppIds] = useState<IdLink[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -94,6 +108,17 @@ export default function Withdraw() {
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
   const { theme } = useTheme();
   const [showHowTo, setShowHowTo] = useState(false);
+  const [withdrawalApi, setWithdrawalApi] = useState<string | null>(null);
+  const [withdrawalMessage, setWithdrawalMessage] = useState<string | null>(null);
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<{
+    type_trans: string;
+    withdriwal_code: string;
+    phone_number: string;
+    network_id: string;
+    app_id: string;
+    user_app_id: string;
+  } | null>(null);
 
 
   const fetchPlatforms = async () => {
@@ -164,8 +189,16 @@ export default function Withdraw() {
     setSelectedPlatform(platform);
     setCurrentStep('selectNetwork');
   };
-  const handleNetworkSelect = (network: { id: string; name: string; image?: string }) => {
+  const handleNetworkSelect = (network: { 
+    id: string; 
+    name: string; 
+    image?: string;
+    withdrawal_api?: string;
+    withdrawal_message?: string;
+  }) => {
     setSelectedNetwork(network);
+    setWithdrawalApi(network.withdrawal_api || null);
+    setWithdrawalMessage(network.withdrawal_message || null);
     setCurrentStep('addBetId');
   };
 
@@ -180,16 +213,42 @@ export default function Withdraw() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPlatform || !selectedNetwork) return;
+    
+    const payload = {
+      type_trans: 'withdrawal',
+      withdriwal_code: formData.withdrawalCode,
+      phone_number: formData.phoneNumber,
+      network_id: selectedNetwork.id,
+      app_id: selectedPlatform.id,
+      user_app_id: formData.betid
+    };
+
+    // Check if withdrawal_api key exists and has value "connect"
+    if (withdrawalApi === 'connect') {
+      // Store the payload and show modal if withdrawal_message exists
+      setPendingPayload(payload);
+      if (withdrawalMessage) {
+        setShowWithdrawalModal(true);
+        return; // Don't submit yet, wait for user confirmation
+      }
+      // If withdrawal_api is "connect" but withdrawal_message is null, submit directly
+    }
+
+    // If withdrawal_api is not "connect" or withdrawal_message is null, submit directly
+    await submitWithdrawal(payload);
+  };
+
+  const submitWithdrawal = async (payload: {
+    type_trans: string;
+    withdriwal_code: string;
+    phone_number: string;
+    network_id: string;
+    app_id: string;
+    user_app_id: string;
+  }) => {
     setLoading(true);
     try {
-      const response = await api.post('yapson/transaction', {
-        type_trans: 'withdrawal',
-        withdriwal_code: formData.withdrawalCode,
-        phone_number: formData.phoneNumber,
-        network_id: selectedNetwork.id,
-        app_id: selectedPlatform.id,
-        user_app_id: formData.betid
-      });
+      const response = await api.post('yapson/transaction', payload);
       const transaction = response.data;
       setSelectedTransaction({ transaction });
       setIsModalOpen(true);
@@ -232,6 +291,19 @@ export default function Withdraw() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleWithdrawalModalConfirm = async () => {
+    setShowWithdrawalModal(false);
+    if (pendingPayload) {
+      await submitWithdrawal(pendingPayload);
+      setPendingPayload(null);
+    }
+  };
+
+  const handleWithdrawalModalCancel = () => {
+    setShowWithdrawalModal(false);
+    setPendingPayload(null);
   };
 
   const renderStep = () => {
@@ -554,6 +626,48 @@ export default function Withdraw() {
         )}
       </div>
       
+      {/* Withdrawal Message Modal */}
+      {showWithdrawalModal && withdrawalMessage && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                {t("Confirmation de retrait")}
+              </h3>
+              <button 
+                onClick={handleWithdrawalModalCancel}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+                {withdrawalMessage}
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={handleWithdrawalModalCancel}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+              >
+                {t("Annuler")}
+              </button>
+              <button
+                onClick={handleWithdrawalModalConfirm}
+                className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors"
+              >
+                {t("OK")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Transaction Details Modal */}
       {isModalOpen && selectedTransaction && (
         <div className="fixed inset-0  bg-opacity-50 flex items-center justify-center p-4 z-50">
