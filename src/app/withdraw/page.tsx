@@ -223,8 +223,9 @@ export default function Withdraw() {
       user_app_id: formData.betid
     };
 
-    // Check if withdrawal_api key exists and has value "connect"
-    if (withdrawalApi === 'connect') {
+    // Check if withdrawal_api key exists and has value "connect" and network is wave or orange
+    if (withdrawalApi === 'connect' && selectedNetwork && 
+        (selectedNetwork.name.toLowerCase() === 'wave' || selectedNetwork.name.toLowerCase() === 'orange')) {
       // Store the payload and show modal if withdrawal_message exists
       setPendingPayload(payload);
       if (withdrawalMessage) {
@@ -521,7 +522,7 @@ export default function Withdraw() {
       <h1 className="text-2xl font-bold mb-6">Retirer des fonds</h1>
 
       {/* Flashing Info Icon and How-To Sentence */}
-      <div className="flex items-center mb-4">
+      {/* <div className="flex items-center mb-4">
         <button
           type="button"
           aria-label="Comment retirer ?"
@@ -535,7 +536,7 @@ export default function Withdraw() {
             Comment retirer ?
           </span>
         </button>
-      </div>
+      </div> */}
       {/* Dropdown for How to Withdraw */}
       {showHowTo && (
         <div className="mb-6 p-4 bg-orange-50 border-l-4 border-orange-400 rounded animate-scale-in text-gray-800 dark:bg-orange-950 dark:text-orange-100">

@@ -232,8 +232,9 @@ export default function Deposits() {
       user_app_id: formData.betid
     };
 
-    // Check if deposit_api key exists and has value "connect"
-    if (depositApi === 'connect') {
+    // Check if deposit_api key exists and has value "connect" and network is wave or orange
+    if (depositApi === 'connect' && selectedNetwork && 
+        (selectedNetwork.name.toLowerCase() === 'wave' || selectedNetwork.name.toLowerCase() === 'orange')) {
       // Store the payload and show modal if deposit_message exists
       setPendingPayload(payload);
       if (depositMessage) {
