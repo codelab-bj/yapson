@@ -83,7 +83,6 @@ export default function Withdraw() {
     name: string; 
     public_name?: string; 
     image?: string;
-    withdrawal_api?: string;
     withdrawal_message?: string;
   } | null>(null);
   const [formData, setFormData] = useState({
@@ -97,7 +96,6 @@ export default function Withdraw() {
     name: string; 
     public_name?: string; 
     image?: string;
-    withdrawal_api?: string;
     withdrawal_message?: string;
   }[]>([]);
   const [savedAppIds, setSavedAppIds] = useState<IdLink[]>([]);
@@ -108,7 +106,6 @@ export default function Withdraw() {
   const [selectedTransaction, setSelectedTransaction] = useState<TransactionDetail | null>(null);
   const { theme } = useTheme();
   const [showHowTo, setShowHowTo] = useState(false);
-  const [withdrawalApi, setWithdrawalApi] = useState<string | null>(null);
   const [withdrawalMessage, setWithdrawalMessage] = useState<string | null>(null);
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<{
@@ -193,11 +190,9 @@ export default function Withdraw() {
     id: string; 
     name: string; 
     image?: string;
-    withdrawal_api?: string;
     withdrawal_message?: string;
   }) => {
     setSelectedNetwork(network);
-    setWithdrawalApi(network.withdrawal_api || null);
     setWithdrawalMessage(network.withdrawal_message || null);
     setCurrentStep('addBetId');
   };
@@ -223,16 +218,11 @@ export default function Withdraw() {
       user_app_id: formData.betid
     };
 
-    // Check if withdrawal_api key exists and has value "connect" and network is wave or orange
-    if (withdrawalApi === 'connect' && selectedNetwork && 
-        (selectedNetwork.name.toLowerCase() === 'wave' || selectedNetwork.name.toLowerCase() === 'orange')) {
-      // Store the payload and show modal if withdrawal_message exists
+    // Show modal if withdrawal_message exists (regardless of withdrawal_api value)
+    if (withdrawalMessage) {
       setPendingPayload(payload);
-      if (withdrawalMessage) {
-        setShowWithdrawalModal(true);
-        return; // Don't submit yet, wait for user confirmation
-      }
-      // If withdrawal_api is "connect" but withdrawal_message is null, submit directly
+      setShowWithdrawalModal(true);
+      return; // Don't submit yet, wait for user confirmation
     }
 
     // If withdrawal_api is not "connect" or withdrawal_message is null, submit directly

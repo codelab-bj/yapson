@@ -80,7 +80,6 @@ interface DepositNetwork {
   image?: string;
   otp_required?: boolean;
   info?: string;
-  deposit_api?: string;
   deposit_message?: string;
 }
 
@@ -108,7 +107,6 @@ export default function Deposits() {
   const { addMessageHandler } = useWebSocket();
   const [pendingTransactionLink, setPendingTransactionLink] = useState<string | null>(null);
   const [savedAppIds, setSavedAppIds] = useState<{ id: string; user: string; link: string; app_name: App }[]>([]);
-  const [depositApi, setDepositApi] = useState<string | null>(null);
   const [depositMessage, setDepositMessage] = useState<string | null>(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<{
@@ -204,7 +202,6 @@ export default function Deposits() {
 
   const handleNetworkSelect = (network: DepositNetwork) => {
     setSelectedNetwork(network);
-    setDepositApi(network.deposit_api || null);
     setDepositMessage(network.deposit_message || null);
     setCurrentStep('enterDetails');
   };
@@ -232,16 +229,11 @@ export default function Deposits() {
       user_app_id: formData.betid
     };
 
-    // Check if deposit_api key exists and has value "connect" and network is wave or orange
-    if (depositApi === 'connect' && selectedNetwork && 
-        (selectedNetwork.name.toLowerCase() === 'wave' || selectedNetwork.name.toLowerCase() === 'orange')) {
-      // Store the payload and show modal if deposit_message exists
+    // Show modal if deposit_message exists (regardless of deposit_api value)
+    if (depositMessage) {
       setPendingPayload(payload);
-      if (depositMessage) {
-        setShowDepositModal(true);
-        return; // Don't submit yet, wait for user confirmation
-      }
-      // If deposit_api is "connect" but deposit_message is null, submit directly
+      setShowDepositModal(true);
+      return; // Don't submit yet, wait for user confirmation
     }
 
     // If deposit_api is not "connect" or deposit_message is null, submit directly
