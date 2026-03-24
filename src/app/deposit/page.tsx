@@ -57,6 +57,9 @@ interface Transaction {
   phone_number?: string;
   user_app_id?: string;
   error_message?: string;
+  ussd_code?: string;
+  message?: string;
+  transaction_link?: string;
 }
 
 interface TransactionDetail {
@@ -118,7 +121,30 @@ export default function Deposits() {
     user_app_id: string;
   } | null>(null);
 
+  // Last transaction summary state
+  const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
+  const [isLastTransactionModalOpen, setIsLastTransactionModalOpen] = useState(false);
+  const [lastTransactionLoading, setLastTransactionLoading] = useState(false);
+  const [lastTransactionActionType, setLastTransactionActionType] = useState<'cancel' | 'finalize' | null>(null);
+
   useEffect(() => { setMounted(true); }, []);
+
+  // Fetch last pending transaction on mount
+  useEffect(() => {
+    const fetchLastTransaction = async () => {
+      try {
+        const response = await api.get('/yapson/last-transaction');
+        const lastTrans: Transaction = response.data;
+        if (lastTrans && lastTrans.status === 'pending') {
+          setLastTransaction(lastTrans);
+          setIsLastTransactionModalOpen(true);
+        }
+      } catch {
+        // Silent fail — no pending transaction or endpoint not available
+      }
+    };
+    fetchLastTransaction();
+  }, []);
   useEffect(() => {
     const handleTransactionLink = (data: WebSocketMessage) => {
       if (data.type === 'transaction_link' && data.data) {
@@ -316,6 +342,42 @@ export default function Deposits() {
   setIsModalOpen(false);
   setSelectedTransaction(null);
 };
+
+  const handleCancelLastTransaction = async () => {
+    if (!lastTransaction?.reference) return;
+    setLastTransactionActionType('cancel');
+    setLastTransactionLoading(true);
+    try {
+      await api.post('/yapson/cancel-transaction', { reference: lastTransaction.reference });
+      setLastTransaction(null);
+      setIsLastTransactionModalOpen(false);
+    } catch (err) {
+      console.error('Error cancelling transaction:', err);
+    } finally {
+      setLastTransactionLoading(false);
+      setLastTransactionActionType(null);
+    }
+  };
+
+  const handleFinalizeLastTransaction = async () => {
+    if (!lastTransaction?.reference) return;
+    setLastTransactionActionType('finalize');
+    setLastTransactionLoading(true);
+    try {
+      const response = await api.post('/yapson/finalize-transaction-user', { reference: lastTransaction.reference });
+      const finalized: Transaction = response.data;
+      setIsLastTransactionModalOpen(false);
+      setLastTransaction(null);
+      // Show the result in the existing transaction modal
+      setSelectedTransaction({ transaction: finalized });
+      setIsModalOpen(true);
+    } catch (err) {
+      console.error('Error finalizing transaction:', err);
+    } finally {
+      setLastTransactionLoading(false);
+      setLastTransactionActionType(null);
+    }
+  };
 
   /**
    * Renders the current step of the deposit process.
@@ -785,123 +847,104 @@ const renderStep = () => {
             </div>
           </div>
         )}
-    </div>
-  );
-}
 
-      {/* Recent transactions section - This could be added if needed */}
-      {/* <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white">{t('Recent Deposits')}</h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{t('View your recent deposit transactions')}</p>
-        </div> */}
-        
-        {/* <div className="p-6"> */}
-          {/* Sample transactions - This would be populated from API data */}
-          {/* <div className="space-y-4"> */}
-            {/* Empty state */}
-            {/* <div className="flex flex-col items-center justify-center py-8 text-center">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">{t('No recent deposits')}</h3>
-              <p className="text-gray-500 dark:text-gray-400 max-w-sm">
-                {t('Your recent deposit transactions will appear here once you make your first deposit.')}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div> */}
+        {/* Last Transaction Summary Modal */}
+        {isLastTransactionModalOpen && lastTransaction && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-yellow-500 text-xl">⏳</span>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                      Transaction en attente
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setIsLastTransactionModalOpen(false)}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    disabled={lastTransactionLoading}
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
 
-      {/* FAQ Section */}
-      {/* <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white">{t('Frequently Asked Questions')}</h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{t('Common questions about deposits')}</p>
-        </div>
-        
-        <div className="p-6 space-y-4">
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <details className="group">
-              <summary className="flex justify-between items-center p-4 cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-white">
-                <span className="font-medium">{t('How long do deposits take to process?')}</span>
-                <svg className="h-5 w-5 text-gray-500 dark:text-gray-400 group-open:rotate-180 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </summary>
-              <div className="p-4 text-gray-600 dark:text-gray-300">
-                <p>{t('Deposits are typically processed within 5-15 minutes. During high volume periods, it may take up to 30 minutes. If your deposit has not been processed within 1 hour, please contact customer support.')}</p>
-              </div>
-            </details>
-          </div>
-          
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <details className="group">
-              <summary className="flex justify-between items-center p-4 cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-white">
-                <span className="font-medium">{t('What is the minimum deposit amount?')}</span>
-                <svg className="h-5 w-5 text-gray-500 dark:text-gray-400 group-open:rotate-180 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </summary>
-              <div className="p-4 text-gray-600 dark:text-gray-300">
-                <p>{t('The minimum deposit amount is 500 XOF. There is no maximum limit for deposits.')}</p>
-              </div>
-            </details>
-          </div>
-          
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-            <details className="group">
-              <summary className="flex justify-between items-center p-4 cursor-pointer bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-800 dark:text-white">
-                <span className="font-medium">{t('Which payment methods are available?')}</span>
-                <svg className="h-5 w-5 text-gray-500 dark:text-gray-400 group-open:rotate-180 transition-transform" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </summary>
-              <div className="p-4 text-gray-600 dark:text-gray-300">
-                <p>{t('We currently support MTN Mobile Money and MOOV Money for deposits. Additional payment methods will be added in the future.')}</p>
-              </div>
-            </details>
-          </div>
-        </div>
-      </div> */}
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Vous avez une transaction en attente. Vous pouvez la finaliser ou l&apos;annuler.
+                </p>
 
-      {/* Support Section */}
-      {/* <div className="mt-8 mb-12">
-        <div className="bg-gradient-to-r from-orange-600 to-orange-600 rounded-2xl shadow-xl overflow-hidden">
-          <div className="md:flex">
-            <div className="p-6 md:p-8 md:w-3/5">
-              <h2 className="text-xl md:text-2xl font-bold text-white mb-2">{t('Need help with your deposit?')}</h2>
-              <p className="text-orange-100 mb-6">{t('Our support team is available 24/7 to assist you with any issues.')}</p>
-              <div className="flex flex-wrap gap-4">
-                <a href="#" className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  <span>{t('Live Chat')}</span>
-                </a>
-                <a href="mailto:support@example.com" className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <span>{t('Email Support')}</span>
-                </a>
-              </div>
-            </div>
-            <div className="hidden md:block md:w-2/5 relative">
-              <div className="absolute inset-0 bg-orange-800/20 backdrop-blur-sm"></div>
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3 mb-5">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Type</span>
+                    <span className={`font-semibold px-2 py-0.5 rounded text-xs ${
+                      lastTransaction.type_trans === 'deposit'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                        : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                    }`}>
+                      {lastTransaction.type_trans === 'deposit' ? 'Dépôt' : 'Retrait'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Statut</span>
+                    <span className="font-semibold px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+                      En attente
+                    </span>
+                  </div>
+                  <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Référence</span>
+                      <span className="font-mono text-xs text-gray-700 dark:text-gray-300 break-all text-right max-w-[60%]">
+                        {lastTransaction.reference}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Montant</span>
+                    <span className="font-semibold text-gray-800 dark:text-white">
+                      {lastTransaction.amount?.toLocaleString('fr-FR')} FCFA
+                    </span>
+                  </div>
+                  {lastTransaction.phone_number && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Téléphone</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{lastTransaction.phone_number}</span>
+                    </div>
+                  )}
+                  {lastTransaction.message && (
+                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded p-3 text-xs text-blue-700 dark:text-blue-300">
+                      ℹ️ {lastTransaction.message}
+                    </div>
+                  )}
+                  {lastTransaction.ussd_code && (
+                    <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded p-3">
+                      <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Code USSD</p>
+                      <p className="font-mono text-sm text-amber-700 dark:text-amber-300 break-all">{lastTransaction.ussd_code}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelLastTransaction}
+                    disabled={lastTransactionLoading}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {lastTransactionLoading && lastTransactionActionType === 'cancel' ? 'Annulation...' : 'Annuler'}
+                  </button>
+                  <button
+                    onClick={handleFinalizeLastTransaction}
+                    disabled={lastTransactionLoading}
+                    className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50 text-sm font-medium transition-colors"
+                  >
+                    {lastTransactionLoading && lastTransactionActionType === 'finalize' ? 'Finalisation...' : 'Finaliser'}
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </div> */}
-//     </div>
-//   );
-// }
+        )}
+    </div>
+  );
+}

@@ -60,6 +60,9 @@ interface Transaction {
   user_app_id?: string;
   error_message?: string;
   withdriwal_code?: string;
+  ussd_code?: string;
+  message?: string;
+  transaction_link?: string;
 }
 
 interface TransactionDetail {
@@ -129,6 +132,12 @@ export default function Withdraw() {
   const [calculatedFee, setCalculatedFee] = useState<number>(0);
   const [netAmount, setNetAmount] = useState<number>(0);
 
+  // Last transaction summary state
+  const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
+  const [isLastTransactionModalOpen, setIsLastTransactionModalOpen] = useState(false);
+  const [lastTransactionLoading, setLastTransactionLoading] = useState(false);
+  const [lastTransactionActionType, setLastTransactionActionType] = useState<'cancel' | 'finalize' | null>(null);
+
   // Calculate fee and net amount when amount or network changes
   useEffect(() => {
     if (formData.amount && selectedNetwork?.with_fee && selectedNetwork?.fee_percent) {
@@ -157,6 +166,23 @@ export default function Withdraw() {
       setPlatforms([]);
     }
   };
+
+  // Fetch last pending transaction on mount
+  useEffect(() => {
+    const fetchLastTransaction = async () => {
+      try {
+        const response = await api.get('/yapson/last-transaction');
+        const lastTrans: Transaction = response.data;
+        if (lastTrans && lastTrans.status === 'pending') {
+          setLastTransaction(lastTrans);
+          setIsLastTransactionModalOpen(true);
+        }
+      } catch {
+        // Silent fail — no pending transaction or endpoint not available
+      }
+    };
+    fetchLastTransaction();
+  }, []);
   // Fetch networks and saved app IDs on component mount
   useEffect(() => {
     const fetchData = async () => {
@@ -329,6 +355,41 @@ export default function Withdraw() {
   const handleWithdrawalModalCancel = () => {
     setShowWithdrawalModal(false);
     setPendingPayload(null);
+  };
+
+  const handleCancelLastTransaction = async () => {
+    if (!lastTransaction?.reference) return;
+    setLastTransactionActionType('cancel');
+    setLastTransactionLoading(true);
+    try {
+      await api.post('/yapson/cancel-transaction', { reference: lastTransaction.reference });
+      setLastTransaction(null);
+      setIsLastTransactionModalOpen(false);
+    } catch (err) {
+      console.error('Error cancelling transaction:', err);
+    } finally {
+      setLastTransactionLoading(false);
+      setLastTransactionActionType(null);
+    }
+  };
+
+  const handleFinalizeLastTransaction = async () => {
+    if (!lastTransaction?.reference) return;
+    setLastTransactionActionType('finalize');
+    setLastTransactionLoading(true);
+    try {
+      const response = await api.post('/yapson/finalize-transaction-user', { reference: lastTransaction.reference });
+      const finalized: Transaction = response.data;
+      setIsLastTransactionModalOpen(false);
+      setLastTransaction(null);
+      setSelectedTransaction({ transaction: finalized });
+      setIsModalOpen(true);
+    } catch (err) {
+      console.error('Error finalizing transaction:', err);
+    } finally {
+      setLastTransactionLoading(false);
+      setLastTransactionActionType(null);
+    }
   };
 
   const renderStep = () => {
@@ -818,6 +879,104 @@ export default function Withdraw() {
           animation: flashText 1.2s infinite;
         }
       `}</style>
+
+      {/* Last Transaction Summary Modal */}
+      {isLastTransactionModalOpen && lastTransaction && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-yellow-500 text-xl">⏳</span>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                    Transaction en attente
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setIsLastTransactionModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  disabled={lastTransactionLoading}
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Vous avez une transaction en attente. Vous pouvez la finaliser ou l&apos;annuler.
+              </p>
+
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3 mb-5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Type</span>
+                  <span className={`font-semibold px-2 py-0.5 rounded text-xs ${
+                    lastTransaction.type_trans === 'deposit'
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                      : 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300'
+                  }`}>
+                    {lastTransaction.type_trans === 'deposit' ? 'Dépôt' : 'Retrait'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Statut</span>
+                  <span className="font-semibold px-2 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300">
+                    En attente
+                  </span>
+                </div>
+                <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Référence</span>
+                    <span className="font-mono text-xs text-gray-700 dark:text-gray-300 break-all text-right max-w-[60%]">
+                      {lastTransaction.reference}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Montant</span>
+                  <span className="font-semibold text-gray-800 dark:text-white">
+                    {lastTransaction.amount?.toLocaleString('fr-FR')} FCFA
+                  </span>
+                </div>
+                {lastTransaction.phone_number && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 dark:text-gray-400">Téléphone</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">{lastTransaction.phone_number}</span>
+                  </div>
+                )}
+                {lastTransaction.message && (
+                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded p-3 text-xs text-blue-700 dark:text-blue-300">
+                    ℹ️ {lastTransaction.message}
+                  </div>
+                )}
+                {lastTransaction.ussd_code && (
+                  <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded p-3">
+                    <p className="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1">Code USSD</p>
+                    <p className="font-mono text-sm text-amber-700 dark:text-amber-300 break-all">{lastTransaction.ussd_code}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCancelLastTransaction}
+                  disabled={lastTransactionLoading}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 text-sm font-medium transition-colors"
+                >
+                  {lastTransactionLoading && lastTransactionActionType === 'cancel' ? 'Annulation...' : 'Annuler'}
+                </button>
+                <button
+                  onClick={handleFinalizeLastTransaction}
+                  disabled={lastTransactionLoading}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50 text-sm font-medium transition-colors"
+                >
+                  {lastTransactionLoading && lastTransactionActionType === 'finalize' ? 'Finalisation...' : 'Finaliser'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
